@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DOI Metadata Fetcher (Fixed for arXiv!)</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; margin: 50px; }
+        input, button { padding: 10px; margin: 10px; font-size: 16px; }
+        #output { margin-top: 20px; font-size: 14px; text-align: left; max-width: 600px; margin-left: auto; margin-right: auto; }
+        .italic { font-style: italic; } /* Italic class for journal name */
+    </style>
+</head>
+<body>
+
+    <h2>IJORAS citation style from DOI</h2>
+	<p></p>
+	<p>Please enter the DOI: 
+    <input type="text" id="doiInput" placeholder="Enter DOI (e.g., 10.48550/arXiv.2301.12345)" size="40">
+    <button onclick="fetchDOIMetadata()">Get Citation</button></p>
+<p>(without the prefix https://doi.org, for example, enter only 10.1186/s40659-017 for https://doi.org/10.1186/s40659-017 )</p>
+    <div id="output"></div>
+
+    <script>
+        function formatAuthors(authors) {
+            if (authors.length === 0) return "N/A"; 
+
+            let formattedAuthors = authors.map(name => {
+                let parts = name.trim().split(" ");
+                let initials = parts.slice(0, -1).map(n => n[0] + ".").join("");
+                return `${initials} ${parts[parts.length - 1]}`;
+            });
+
+            // Add "and" before the last author if multiple authors exist
+            if (formattedAuthors.length > 1) {
+                let lastAuthor = formattedAuthors.pop();
+                return formattedAuthors.join(", ") + " and " + lastAuthor;
+            }
+            return formattedAuthors[0];
+        }
+
+        async function fetchDOIMetadata() {
+            let doi = document.getElementById("doiInput").value.trim();
+            if (!doi) {
+                alert("Please enter a DOI.");
+                return;
+            }
+
+            let outputDiv = document.getElementById("output");
+
+            if (doi.startsWith("10.48550/arXiv.")) {
+                // If the DOI belongs to arXiv, use arXiv API
+                let arxivId = doi.replace("10.48550/arXiv.", ""); // Extract arXiv ID
+                let arxivApiUrl = `https://export.arxiv.org/api/query?id_list=${arxivId}`;
+
+                try {
+                    let response = await fetch(arxivApiUrl);
+                    let text = await response.text();
+                    
+                    // Extract metadata from XML response
+                    let parser = new DOMParser();
+                    let xml = parser.parseFromString(text, "text/xml");
+
+                    let title = xml.getElementsByTagName("title")[1]?.textContent.trim() || "N/A";
+                    
+                    // 🔹 FIXED: Correctly extract author names
+                    let authorsNodeList = xml.getElementsByTagName("author");
+                    let authors = Array.from(authorsNodeList).map(a => {
+                        return a.getElementsByTagName("name")[0]?.textContent || "N/A";
+                    });
+
+                    let formattedAuthors = formatAuthors(authors);
+                    let year = xml.getElementsByTagName("published")[0]?.textContent.substring(0, 4) || "N/A";
+
+                    let doiUrl = `https://doi.org/${doi}`;
+
+                    outputDiv.innerHTML = `
+					<p>Here's the IJORAS citation style for DOI:${doi}. You may copy & paste it to your manuscript. Cheers~</p>
+                        <p>${formattedAuthors}, "${title}," <span class="italic">arXiv</span>, ${year}.<br>
+                        DOI: <a href="${doiUrl}" target="_blank">${doiUrl}</a></p>
+                    `;
+                    return;
+                } catch (error) {
+                    outputDiv.innerHTML = `<p style="color:red;">Error fetching arXiv metadata: ${error.message}</p>`;
+                    return;
+                }
+            }
+
+            // For non-arXiv DOIs, use CrossRef API
+            let crossRefApiUrl = `https://api.crossref.org/works/${doi}`;
+
+            try {
+                let response = await fetch(crossRefApiUrl);
+                if (!response.ok) throw new Error("DOI not found or API error");
+
+                let data = await response.json();
+                let metadata = data.message;
+
+                // Format authors with initials and "and" before last author
+                let authors = metadata.author ? formatAuthors(metadata.author.map(a => `${a.given} ${a.family}`)) : "N/A";
+
+                let title = metadata.title ? metadata.title[0] : "N/A";
+                let journal = metadata["container-title"] ? metadata["container-title"][0] : "N/A";
+                let volume = metadata.volume && metadata.volume !== "N/A" ? `vol. ${metadata.volume}` : "";
+                let issue = metadata.issue && metadata.issue !== "N/A" ? `no. ${metadata.issue}` : "";
+                let pages = metadata.page && metadata.page !== "N/A" ? `pp. ${metadata.page}` : "";
+                let year = metadata["published-print"]?.["date-parts"]?.[0]?.[0] ||
+                           metadata["published-online"]?.["date-parts"]?.[0]?.[0] || null;
+
+                if (!year) {
+                    let match = doi.match(/\.(\d{4})\./);
+                    year = match ? match[1] : "N/A";
+                }
+
+                let doiUrl = `https://doi.org/${doi}`;
+
+                let citationDetails = [volume, issue, pages].filter(Boolean).join(", ");
+                if (citationDetails) citationDetails = ", " + citationDetails;
+
+                outputDiv.innerHTML = `
+                    <p></p>
+					<h2>Output:</h2>
+					
+					<p>-----------------------------------------------------------------------</p>
+					<p>${authors}, "${title}," <span class="italic">${journal}</span>${citationDetails}, ${year}.<br>
+                    DOI: <a href="${doiUrl}" target="_blank">${doiUrl}</a></p>
+					<p>-----------------------------------------------------------------------</p>
+					<p>Here's the IJORAS citation style for DOI:${doi}. You may copy & paste it to your manuscript. Cheers~</p>
+					<p> Please take note that this tool is served to aid authors to easily adapt to the IJORAS citation style. However there is no guarenteed that it will not give any errors.It is advised that to double check with result to ensure all information are correctly stated. </p> 
+                `;
+            } catch (error) {
+                outputDiv.innerHTML = `<p style="color:red;">Error fetching metadata: ${error.message}</p>`;
+            }
+        }
+    </script>
+
+</body>
+</html>

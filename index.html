@@ -75,9 +75,14 @@
                     let doiUrl = `https://doi.org/${doi}`;
 
                     outputDiv.innerHTML = `
-					<p>Here's the IJORAS citation style for DOI:${doi}. You may copy & paste it to your manuscript. Cheers~</p>
+     			<p></p>
+			<h2>Output:</h2>
+   			<p>-----------------------------------------------------------------------</p>
                         <p>${formattedAuthors}, "${title}," <span class="italic">arXiv</span>, ${year}.<br>
                         DOI: <a href="${doiUrl}" target="_blank">${doiUrl}</a></p>
+			<p>-----------------------------------------------------------------------</p>
+   			<p>Here's the IJORAS citation style for DOI:${doi}. You may copy & paste it to your manuscript. Cheers~</p>
+			<p> Please take note that this tool is served to aid authors to easily adapt to the IJORAS citation style. However there is no guarentee that it is error free. Authors are advised to double check with result to ensure all information are correctly stated. </p>
                     `;
                     return;
                 } catch (error) {
@@ -126,7 +131,7 @@
                     DOI: <a href="${doiUrl}" target="_blank">${doiUrl}</a></p>
 					<p>-----------------------------------------------------------------------</p>
 					<p>Here's the IJORAS citation style for DOI:${doi}. You may copy & paste it to your manuscript. Cheers~</p>
-					<p> Please take note that this tool is served to aid authors to easily adapt to the IJORAS citation style. However there is no guarenteed that it will not give any errors.It is advised that to double check with result to ensure all information are correctly stated. </p> 
+					<p> Please take note that this tool is served to aid authors to easily adapt to the IJORAS citation style. However there is no guarentee that it is error free. Authors are advised to double check with result to ensure all information are correctly stated. </p> 
                 `;
             } catch (error) {
                 outputDiv.innerHTML = `<p style="color:red;">Error fetching metadata: ${error.message}</p>`;
